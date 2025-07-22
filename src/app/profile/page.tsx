@@ -1,112 +1,114 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import axios from "axios";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [data, setData] = useState("nothing");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [isDark, setIsDark] = useState(false);
 
-  // Detect system theme OR localStorage preference
+  // Apply theme on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = savedTheme ?? (systemPrefersDark ? "dark" : "light");
-
-    setTheme(initial);
-    document.documentElement.classList.add(initial);
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      document.documentElement.style.backgroundColor = "#111827";
+      document.documentElement.style.color = "#f9fafb";
+      setIsDark(true);
+    } else {
+      document.documentElement.style.backgroundColor = "#ffffff";
+      document.documentElement.style.color = "#111827";
+      setIsDark(false);
+    }
   }, []);
 
-  // Apply theme to <html> and store in localStorage
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+    const newTheme = isDark ? "light" : "dark";
+    setIsDark(!isDark);
+    localStorage.setItem("theme", newTheme);
+
+    if (newTheme === "dark") {
+      document.documentElement.style.backgroundColor = "#111827";
+      document.documentElement.style.color = "#f9fafb";
+    } else {
+      document.documentElement.style.backgroundColor = "#ffffff";
+      document.documentElement.style.color = "#111827";
+    }
   };
 
   const logout = async () => {
-    await axios.post("/api/users/logout");
-    router.push("/login");
+    try {
+      await axios.post("/api/users/logout");
+      router.push("/login");
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const getUserDetail = async () => {
     try {
       const res = await axios.get("/api/users/me");
       const user = res.data?.data;
-      setData(user?.username ?? "not found");
-    } catch {
+      if (user && user._id) {
+        setData(user.username);
+      } else {
+        setData("not found");
+      }
+    } catch (error) {
       setData("error");
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 py-10 bg-white text-black dark:bg-gray-900 dark:text-white transition-colors duration-300">
-      {/* Toggle Button */}
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 shadow hover:scale-110 transition"
-        >
-          {theme === "dark" ? (
-            <Sun className="text-yellow-400" />
-          ) : (
-            <Moon className="text-blue-600" />
-          )}
-        </button>
-      </div>
-
-      {/* Profile Card */}
-      <motion.div
-        className="w-full max-w-md p-8 rounded-3xl bg-gray-100 dark:bg-gray-800 shadow-2xl text-center border border-gray-300 dark:border-white/20 backdrop-blur-md"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+    <div className="flex items-center justify-center min-h-screen px-4">
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-4 right-4 p-2 rounded-full bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 transition"
       >
-        <h1 className="text-3xl font-semibold mb-2">👤 Profile Page</h1>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+        {isDark ? <Sun className="text-yellow-400" /> : <Moon className="text-blue-600" />}
+      </button>
+
+      {/* Animated Profile Box */}
+      <motion.div
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, type: "spring" }}
+        className="w-full max-w-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-8 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700"
+      >
+        <h1 className="text-3xl font-bold text-center mb-4">🌟 Profile Page</h1>
+        <p className="text-center mb-6 text-gray-600 dark:text-gray-400">
           Welcome to your dashboard
         </p>
 
-        <motion.button
+        <button
           onClick={getUserDetail}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2 rounded-xl transition mb-4"
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.05 }}
+          className="bg-blue-600 text-white w-full py-2 rounded-xl mb-4 hover:bg-blue-700 transition"
         >
           Get Profile Details
-        </motion.button>
+        </button>
 
-        <div className="text-lg font-medium mb-4">
-          {["nothing", "error", "not found"].includes(data) ? (
-            <span className="text-gray-500">{data}</span>
-          ) : (
+        {data !== "nothing" && (
+          <div className="mb-4 text-center text-lg">
             <Link
               href={`/profile/${data}`}
               className="text-blue-500 underline hover:text-blue-300 transition"
             >
               View Profile for {data}
             </Link>
-          )}
-        </div>
+          </div>
+        )}
 
-        <motion.button
+        <button
           onClick={logout}
-          className="w-full bg-red-500 hover:bg-red-600 text-white font-medium px-5 py-2 rounded-xl transition"
-          whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.05 }}
+          className="bg-red-600 text-white w-full py-2 rounded-xl hover:bg-red-700 transition"
         >
           Logout
-        </motion.button>
+        </button>
       </motion.div>
     </div>
   );
